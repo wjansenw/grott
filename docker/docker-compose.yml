@@ -13,7 +13,13 @@ services:
             - gmqttpassword=growatt2020
             - gpvoutput=False
             - gpvapikey=yourapikey 
-            - gpvinverterid1=inverter1
+            - gpvinverterid1
             - gpvsystemid1=12345
+            - ginflux = False
+            - gifdbname = grottdb
+            - gifip = localhost
+            - gifport = 8086
+            - gifuser = grott
+            - gigpassword = growatt2020
             - TZ=Europe/Amsterdam 
         image: ledidobe/grott
