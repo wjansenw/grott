@@ -1,7 +1,7 @@
 #
 # grottconf  process command parameter and settings file
-# Updated: 2020-11-20
-# Version 2.2.6
+# Updated: 2020-12-16
+# Version 2.3.0
 
 import configparser, sys, argparse, os, json, io
 import ipaddress
@@ -29,7 +29,8 @@ class Conf :
         self.mode = "proxy"
         self.grottport = 5279
         self.grottip = "default"                                                                    #connect to server IP adress     
-        self.outfile ="sys.stdout"
+        self.outfile ="sys.stdout"  
+        self.tmzone = "local"                                                                       #set timezone (at this moment only used for influxdb)                
 
         #Growatt server default 
         self.growattip = "47.91.67.66"
@@ -54,6 +55,16 @@ class Conf :
         self.pvsystemid[1] = "systemid1"
         self.pvinverterid[1] = "inverter1"
         
+        #influxdb default 
+        self.influx = False
+        self.ifdbname = "grottdb"
+        self.ifip = "localhost"
+        self.ifport = 8086
+        self.ifuser = "grott"
+        self.ifpsw  = "growatt2020"
+        #self.ifuser = ""
+        #self.ifpsw  = ""
+
         print("Grott Growatt logging monitor : " + self.verrel)    
 
         #Set parm's 
@@ -70,11 +81,6 @@ class Conf :
         #Process environmental variable to override config and environmental settings
         self.parserset() 
 
-        #print settings
-        #print()
-
-        #self.setparm()
-
         #Prepare invert settings
         self.SN = "".join(['{:02x}'.format(ord(x)) for x in self.inverterid])
         self.offset = 6 
@@ -90,6 +96,31 @@ class Conf :
         #define record whitlist (if blocking / filtering enabled 
         self.set_recwl()
 
+        #prepare influxDB
+        if self.influx :  
+            if self.verbose :  print("")
+            if self.verbose :  print("\t - " + "Grott InfluxDB initiating started")
+            try:     
+                from influxdb import InfluxDBClient
+            except: 
+                if self.verbose :  print("\t - " + "Grott InfluxDB Library not installed in Python, influx processing disabled")
+                self.influx = False                       # no influx processing any more till restart (and errors repared)
+                return              
+            self.influxclient = InfluxDBClient(host=self.ifip, port=self.ifport, timeout=3, username=self.ifuser, password=self.ifpsw)   
+            
+            try: 
+                databases = [db['name'] for db in self.influxclient.get_list_database()]
+            except: 
+                if self.verbose :  print("\t - " + "Grott can not contact InfluxDB, influx processing disabled")   
+                self.influx = False                       # no influx processing any more till restart (and errors repared)
+                return
+
+            #print(databases)  
+            if self.ifdbname not in databases:
+                if self.verbose :  print("\t - " + "Grott grottdb not yet defined in influx, will be created")        
+                self.influxclient.create_database(self.ifdbname)
+            self.influxclient.switch_database(self.ifdbname)
+
     def print(self): 
         print("\nGrott settings:\n")
         print("_Generic:")
@@ -104,6 +135,7 @@ class Conf :
         print("\tnoipf:       \t",self.noipf)
         print("\ttime:        \t",self.gtime)
         print("\tsendbuf:     \t",self.sendbuf)
+        print("\ttimezone:    \t",self.tmzone)
         print("\tvalueoffset: \t",self.valueoffset)
         print("\toffset:      \t",self.offset)
         print("\tinverterid:  \t",self.inverterid)
@@ -132,6 +164,13 @@ class Conf :
         else: 
             print("\tpvsystemid:  \t",self.pvsystemid)
             print("\tpvinvertid:  \t",self.pvinverterid)
+        print("_Influxdb:")
+        print("\tinflux:      \t",self.influx)
+        print("\tdatabase:    \t",self.ifdbname)
+        print("\tip:          \t",self.ifip)
+        print("\tport:        \t",self.ifport)
+        print("\tuser:        \t",self.ifuser)
+        print("\tpassword:    \t",self.ifpsw)
         print()
 
 
@@ -210,6 +249,7 @@ class Conf :
         self.pvoutput = str2bool(self.pvoutput)
         self.nomqtt = str2bool(self.nomqtt)        
         self.mqttauth = str2bool(self.mqttauth)
+        self.influx = str2bool(self.influx)
         
     def procconf(self): 
         print("\nGrott process configuration file")
@@ -224,6 +264,7 @@ class Conf :
         if config.has_option("Generic","noipf"): self.noipf = config.get("Generic","noipf")
         if config.has_option("Generic","time"): self.gtime = config.get("Generic","time")
         if config.has_option("Generic","sendbuf"): self.sendbuf = config.get("Generic","sendbuf")
+        if config.has_option("Generic","timezone"): self.tmzone = config.get("Generic","timezone")
         if config.has_option("Generic","mode"): self.mode = config.get("Generic","mode")
         if config.has_option("Generic","ip"): self.grottip = config.get("Generic","ip")
         if config.has_option("Generic","port"): self.grottport = config.getint("Generic","port")
@@ -247,23 +288,27 @@ class Conf :
             if config.has_option("PVOutput","inverterid"+str(x)): self.pvinverterid[x] = config.get("PVOutput","inverterid" + str(x))
         if self.pvinverters == 1 : 
             if config.has_option("PVOutput","systemid"): self.pvsystemid[1] = config.get("PVOutput","systemid")
-            # try: 
-            #     print(x, self.pvsystemid[x])
-            # except: print("key doesnot exists:",x )
+        #INFLUX
+        if config.has_option("influx","influx"): self.influx = config.get("influx","influx")
+        if config.has_option("influx","dbname"): self.ifdbname = config.get("influx","dbname")
+        if config.has_option("influx","ip"): self.ifip = config.get("influx","ip")
+        if config.has_option("influx","port"): self.ifport = config.get("influx","port")
+        if config.has_option("influx","user"): self.ifuser = config.get("influx","user")
+        if config.has_option("influx","password"): self.ifpsw = config.get("influx","password")
 
     def procenv(self): 
         print("\nGrott process environmental variables")
-        #print(os.getenv('gmode'))
         if os.getenv('gmode') in ("sniff", "proxy") :  self.mode = os.getenv('gmode')
-        if os.getenv('gverbose') in ("True", "False"):  self.verbose = os.getenv('verbose')
+        if os.getenv('gverbose') != None :  self.verbose = os.getenv('verbose')
         if os.getenv('gminrecl') != None : 
             if 0 <= int(os.getenv('gminrecl')) <= 255  :     self.minrecl = os.getenv('gminrecl')
-        if os.getenv('gdecrypt') in ("True", "False") : self.decrypt = os.getenv('gdecrypt') 
-        if os.getenv('gcompat') in ("True", "False") :  self.compat = os.getenv('gcompat')
-        if os.getenv('gblockcmd') in ("True", "False") : self.blockcmd = os.getenv('gblockcmd')
-        if os.getenv('gnoipf') in ("True", "False") : self.noipf = os.getenv('gnoipf')    
+        if os.getenv('gdecrypt') != None : self.decrypt = os.getenv('gdecrypt') 
+        if os.getenv('gcompat') != None :  self.compat = os.getenv('gcompat')
+        if os.getenv('gblockcmd') != None : self.blockcmd = os.getenv('gblockcmd')
+        if os.getenv('gnoipf') != None : self.noipf = os.getenv('gnoipf')     
         if os.getenv('gtime') in ("auto", "server") : self.gtime = os.getenv('gtime')   
-        if os.getenv('gsendbuf') in ("True", "False") : self.sendbuf = os.getenv('gsendbuf')   
+        if os.getenv('gtimezone') != None : self.tmzone = os.getenv('gtimezone')   
+        if os.getenv('gsendbuf') != None : self.sendbuf = os.getenv('gsendbuf')   
         if os.getenv('ginverterid') != None :  self.inverterid = os.getenv('ginverterid')
         if os.getenv('ggrottip') != None : 
             try: 
@@ -283,7 +328,8 @@ class Conf :
                 if self.verbose : print("\nGrott Growatt server IP address env invalid")
         if os.getenv('ggrowattport') != None :     
             if 0 <= int(os.getenv('ggrowattport')) <= 65535  :  self.growattport = os.getenv('ggrowattport')
-        if os.getenv('gnomqtt') in ("True", "False") :  self.nomqtt = os.getenv('gnomqtt')    
+        #handle mqtt environmentals    
+        if os.getenv('gnomqtt') != None :  self.nomqtt = os.getenv('gnomqtt')    
         if os.getenv('gmqttip') != None :    
             try: 
                 ipaddress.ip_address(os.getenv('gmqttip'))
@@ -292,24 +338,26 @@ class Conf :
                 if self.verbose : print("\nGrott MQTT server IP address env invalid")
         if os.getenv('gmqttport') != None :     
             if 0 <= int(os.getenv('gmqttport')) <= 65535  :  self.mqttport = os.getenv('gmqttport')
-        if os.getenv('gmqttauth') in ("True", "true", True, False, "false", "False") :  self.mqttauth = os.getenv('gmqttauth')
+        if os.getenv('gmqttauth') != None :  self.mqttauth = os.getenv('gmqttauth')
         if os.getenv('gmqtttopic') != None :  self.mqtttopic = os.getenv('gmqtttopic')
         if os.getenv('gmqttuser') != None :  self.mqttuser = os.getenv('gmqttuser')
         if os.getenv('gmqttpassword') != None : self.mqttpsw = os.getenv('gmqttpassword')
-        if os.getenv('gpvoutput') in ("True", "False") :  self.pvoutput = os.getenv('gpvoutput') 
+        #Handle PVOutput variables
+        if os.getenv('gpvoutput') != None :  self.pvoutput = os.getenv('gpvoutput') 
         if os.getenv('gpvapikey') != None :  self.pvapikey = os.getenv('gpvapikey')   
-        if os.getenv('gpvinverters') != None :  self.pvinverters = int(os.getenv('gpvinverters'))   
-        #if os.getenv('gpvsystemid') != None :  self.pvsystemid[1] = os.getenv('gpvsystemid')   
+        if os.getenv('gpvinverters') != None :  self.pvinverters = int(os.getenv('gpvinverters'))    
         for x in range(self.pvinverters+1) : 
                 if os.getenv('gpvsystemid'+str(x)) != None :  self.pvsystemid[x] = os.getenv('gpvsystemid'+ str(x))
                 if os.getenv('gpvinverterid'+str(x)) != None :  self.pvinverterid[x] = os.getenv('gpvinverterid'+ str(x))
         if self.pvinverters == 1 : 
             if os.getenv('gpvsystemid') != None :  self.pvsystemid[1] = os.getenv('gpvsystemid')   
-
-                # try: 
-                #    print(x, self.pvsystemid[x])
-                # except: print("key doesnot exists:",x )
-
+        #Handle Influx
+        if os.getenv('ginflux') != None :  self.influx = os.getenv('ginflux') 
+        if os.getenv('gifdbname') != None :  self.ifdbname = os.getenv('gifdbname') 
+        if os.getenv('gifip') != None :  self.ifip = os.getenv('gifip') 
+        if os.getenv('gifport') != None :  self.ifport = os.getenv('gifport') 
+        if os.getenv('gifuser') != None :  self.ifuser = os.getenv('gifuser') 
+        if os.getenv('gifpassword') != None :  self.ifpsw = os.getenv('gifpassword') 
         
     def set_recwl(self):    
         #define record that will not be blocked or inspected if blockcmd is specified

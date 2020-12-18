@@ -114,3 +114,6 @@ Enable PVOUTPUT for multiple inverters (specify , pvinverters=1-8, pvsystemidx x
 Changed support for multiple inverters to supported all kind combination of inverters with 1 grott instance, 
 Enable PVOUTPUT for multiple inverters (specify , pvinverters=1-8, pvsystemidx=<pvoutput systemid>, pvinverteridx=<inverterid for pvsystemidx>  x=integer, pv). 
       default pvinverters = 1 and pvsystemid = <your systemid> 
+2.3.0
+Support direct output to Influxdb. See wiki for more information how to enable (resolve issue: #29)
+allow true / false (lower cases) in ini file and environmental variables (resolve issue: #24 )
