@@ -117,3 +117,5 @@ Enable PVOUTPUT for multiple inverters (specify , pvinverters=1-8, pvsystemidx=<
 2.3.0
 Support direct output to Influxdb. See wiki for more information how to enable (resolve issue: #29)
 allow true / false (lower cases) in ini file and environmental variables (resolve issue: #24 )
+2.3.1
+Added support for influxdb V2

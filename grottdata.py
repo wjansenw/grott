@@ -1,6 +1,6 @@
 # grottdata.py processing data  functions
-# Updated: 2020-11-20
-# Version 2.2.6
+# Updated: 2020-12-30
+# Version 2.3.0
 
 #import time
 from datetime import datetime, timedelta
@@ -398,8 +398,23 @@ def procdata(conf,data):
         #if conf.verbose :  print("\t - " + "Grott InfluxDB publihing started")
   
         try: 
-            ifresult = conf.influxclient.write_points(ifjson)
-        except: 
-             if conf.verbose :  print("\t - " + "Grott InfluxDB error :",ifresult) 
+            if (conf.influx2):
+                if conf.verbose :  print("\t - " + "Grott write to influxdb v2") 
+                ifresult = conf.ifwrite_api.write(conf.ifbucket,conf.iforg,ifjson)   
+                #print(ifresult)
+            else: 
+                if conf.verbose :  print("\t - " + "Grott write to influxdb v1") 
+                ifresult = conf.influxclient.write_points(ifjson)
+        #except : 
+        except Exception as e:
+            # if  conf.verbose: 
+                print("\t - " + "Grott InfluxDB error ")
+                print(e) 
+            # print(ifresult)
+            # if  conf.verbose: 
+            #     try :
+            #         ifresult
+            #         print("\t - " + "Grott InfluxDB error :",ifresult) 
+            #     except: print("\t - " + "Grott InfluxDB error ") 
     else: 
             if conf.verbose : print("\t - " + "Grott Send data to Influx disabled ")           

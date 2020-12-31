@@ -1,7 +1,7 @@
 #
 # grottconf  process command parameter and settings file
-# Updated: 2020-12-16
-# Version 2.3.0
+# Updated: 2020-12-30
+# Version 2.3.1
 
 import configparser, sys, argparse, os, json, io
 import ipaddress
@@ -57,14 +57,16 @@ class Conf :
         
         #influxdb default 
         self.influx = False
+        self.influx2 = False
         self.ifdbname = "grottdb"
         self.ifip = "localhost"
         self.ifport = 8086
         self.ifuser = "grott"
         self.ifpsw  = "growatt2020"
-        #self.ifuser = ""
-        #self.ifpsw  = ""
-
+        self.iftoken  = "influx_token"
+        self.iforg  = "grottorg"
+        self.ifbucket = "grottdb" 
+        
         print("Grott Growatt logging monitor : " + self.verrel)    
 
         #Set parm's 
@@ -98,29 +100,73 @@ class Conf :
 
         #prepare influxDB
         if self.influx :  
-            if self.verbose :  print("")
-            if self.verbose :  print("\t - " + "Grott InfluxDB initiating started")
-            try:     
-                from influxdb import InfluxDBClient
-            except: 
-                if self.verbose :  print("\t - " + "Grott InfluxDB Library not installed in Python, influx processing disabled")
-                self.influx = False                       # no influx processing any more till restart (and errors repared)
-                return              
-            self.influxclient = InfluxDBClient(host=self.ifip, port=self.ifport, timeout=3, username=self.ifuser, password=self.ifpsw)   
+            if self.influx2 == False: 
+                if self.verbose :  print("")
+                if self.verbose :  print("\t - " + "Grott InfluxDB V1 initiating started")
+                try:     
+                    from influxdb import InfluxDBClient
+                except: 
+                    if self.verbose :  print("\t - " + "Grott InfluxDB Library not installed in Python, influx processing disabled")
+                    self.influx = False                       # no influx processing any more till restart (and errors repared)
+                    return              
+                self.influxclient = InfluxDBClient(host=self.ifip, port=self.ifport, timeout=3, username=self.ifuser, password=self.ifpsw)   
+                
+                try: 
+                    databases = [db['name'] for db in self.influxclient.get_list_database()]
+                except Exception as e: 
+                    if self.verbose :  print("\t - " + "Grott can not contact InfluxDB, influx processing disabled")   
+                    self.influx = False                       # no influx processing any more till restart (and errors repared)
+                    print("\t -", e)
+                    return
+
+                #print(databases)  
+                if self.ifdbname not in databases:
+                    if self.verbose :  print("\t - " + "Grott grottdb not yet defined in influx, will  be created")        
+                    try: 
+                        self.influxclient.create_database(self.ifdbname)
+                    except: 
+                        if self.verbose :  print("\t - " + "Grott Unable to create or connect to influx database:" ,  self.ifdbname," check user authorisation") 
+                        self.influx = False                       # no influx processing any more till restart (and errors repared)
+        
+                self.influxclient.switch_database(self.ifdbname)
+            else: 
+
+                if self.verbose :  print("")
+                if self.verbose :  print("\t - " + "Grott InfluxDB V2 initiating started")
+                try:     
+                    from influxdb_client import InfluxDBClient
+                    from influxdb_client.client.write_api import SYNCHRONOUS
+                except: 
+                    if self.verbose :  print("\t - " + "Grott InfluxDB Library not installed in Python, influx processing disabled")
+                    self.influx = False                       # no influx processing any more till restart (and errors repared)
+                    return              
+
+                #self.influxclient = InfluxDBClient(url='192.168.0.211:8086',org=self.iforg, token=self.iftoken)
+                self.influxclient = InfluxDBClient(url=self.ifip + ":" + self.ifport,org=self.iforg, token=self.iftoken)
+                self.ifbucket_api = self.influxclient.buckets_api()
+                self.iforganization_api = self.influxclient.organizations_api()              
+                self.ifwrite_api = self.influxclient.write_api(write_options=SYNCHRONOUS)
+                
+                try:
+                    buckets = self.ifbucket_api.find_bucket_by_name(self.ifbucket)
+                    organizations = self.iforganization_api.find_organizations()                                           
+                    if buckets == None:
+                        print("\t - " + "influxDB bucket ", self.ifbucket, "not defined, influx processing disabled")  
+                        self.influx = False      
+                    orgfound = False    
+                    for org in organizations: 
+                        if org.name == self.iforg:
+                            orgfound = True
+                            break
+                    if not orgfound: 
+                        print("\t - " + "influxDB organization", self.iforg, "not defined, influx processing disabled")  
+                        self.influx = False  
+
+                except Exception as e:
+                    if self.verbose :  print("\t - " + "Grott can not contact InfluxDB, influx processing disabled")   
+                    print(e)
+                    self.influx = False                       # no influx processing any more till restart (and errors repared)
             
-            try: 
-                databases = [db['name'] for db in self.influxclient.get_list_database()]
-            except: 
-                if self.verbose :  print("\t - " + "Grott can not contact InfluxDB, influx processing disabled")   
-                self.influx = False                       # no influx processing any more till restart (and errors repared)
-                return
-
-            #print(databases)  
-            if self.ifdbname not in databases:
-                if self.verbose :  print("\t - " + "Grott grottdb not yet defined in influx, will be created")        
-                self.influxclient.create_database(self.ifdbname)
-            self.influxclient.switch_database(self.ifdbname)
-
     def print(self): 
         print("\nGrott settings:\n")
         print("_Generic:")
@@ -166,11 +212,18 @@ class Conf :
             print("\tpvinvertid:  \t",self.pvinverterid)
         print("_Influxdb:")
         print("\tinflux:      \t",self.influx)
+        print("\tinflux2:     \t",self.influx2)
         print("\tdatabase:    \t",self.ifdbname)
         print("\tip:          \t",self.ifip)
         print("\tport:        \t",self.ifport)
-        print("\tuser:        \t",self.ifuser)
-        print("\tpassword:    \t",self.ifpsw)
+        print("\tuser:        \t",self.ifuser)        
+        print("\tpassword:    \t","**secret**")
+        #print("\tpassword:    \t",self.ifpsw)
+        print("\torganization:\t",self.iforg ) 
+        print("\tbucket:      \t",self.ifbucket) 
+        print("\ttoken:       \t","**secret**")
+        #print("\ttoken:       \t",self.iftoken)  
+
         print()
 
 
@@ -250,6 +303,7 @@ class Conf :
         self.nomqtt = str2bool(self.nomqtt)        
         self.mqttauth = str2bool(self.mqttauth)
         self.influx = str2bool(self.influx)
+        self.influx2 = str2bool(self.influx2)
         
     def procconf(self): 
         print("\nGrott process configuration file")
@@ -290,12 +344,16 @@ class Conf :
             if config.has_option("PVOutput","systemid"): self.pvsystemid[1] = config.get("PVOutput","systemid")
         #INFLUX
         if config.has_option("influx","influx"): self.influx = config.get("influx","influx")
+        if config.has_option("influx","influx2"): self.influx2 = config.get("influx","influx2")
         if config.has_option("influx","dbname"): self.ifdbname = config.get("influx","dbname")
         if config.has_option("influx","ip"): self.ifip = config.get("influx","ip")
         if config.has_option("influx","port"): self.ifport = config.get("influx","port")
         if config.has_option("influx","user"): self.ifuser = config.get("influx","user")
         if config.has_option("influx","password"): self.ifpsw = config.get("influx","password")
-
+        if config.has_option("influx","org"): self.iforg = config.get("influx","org")
+        if config.has_option("influx","bucket"): self.ifbucket = config.get("influx","bucket")
+        if config.has_option("influx","token"): self.iftoken = config.get("influx","token")
+        
     def procenv(self): 
         print("\nGrott process environmental variables")
         if os.getenv('gmode') in ("sniff", "proxy") :  self.mode = os.getenv('gmode')
@@ -353,11 +411,15 @@ class Conf :
             if os.getenv('gpvsystemid') != None :  self.pvsystemid[1] = os.getenv('gpvsystemid')   
         #Handle Influx
         if os.getenv('ginflux') != None :  self.influx = os.getenv('ginflux') 
+        if os.getenv('ginflux2') != None :  self.influx2 = os.getenv('ginflux2') 
         if os.getenv('gifdbname') != None :  self.ifdbname = os.getenv('gifdbname') 
         if os.getenv('gifip') != None :  self.ifip = os.getenv('gifip') 
         if os.getenv('gifport') != None :  self.ifport = os.getenv('gifport') 
         if os.getenv('gifuser') != None :  self.ifuser = os.getenv('gifuser') 
         if os.getenv('gifpassword') != None :  self.ifpsw = os.getenv('gifpassword') 
+        if os.getenv('giforg') != None :  self.iforg = os.getenv('giforg') 
+        if os.getenv('gifbucket') != None :  self.ifbucket = os.getenv('gifbucket') 
+        if os.getenv('giftoken') != None :  self.iftoken = os.getenv('giftoken') 
         
     def set_recwl(self):    
         #define record that will not be blocked or inspected if blockcmd is specified
