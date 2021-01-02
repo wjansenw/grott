@@ -1,7 +1,7 @@
 #
 # grottconf  process command parameter and settings file
-# Updated: 2020-12-30
-# Version 2.3.1
+# Updated: 2020-01-02
+# Version 2.3.1a
 
 import configparser, sys, argparse, os, json, io
 import ipaddress
@@ -100,24 +100,26 @@ class Conf :
 
         #prepare influxDB
         if self.influx :  
+            if self.ifip == "localhost" : self.ifip = '0.0.0.0'
             if self.influx2 == False: 
                 if self.verbose :  print("")
                 if self.verbose :  print("\t - " + "Grott InfluxDB V1 initiating started")
                 try:     
                     from influxdb import InfluxDBClient
                 except: 
-                    if self.verbose :  print("\t - " + "Grott InfluxDB Library not installed in Python, influx processing disabled")
+                    if self.verbose :  print("\t - " + "Grott Influxdb Library not installed in Python")
                     self.influx = False                       # no influx processing any more till restart (and errors repared)
-                    return              
+                    raise SystemExit("Grott Influxdb initialisation error")
+
                 self.influxclient = InfluxDBClient(host=self.ifip, port=self.ifport, timeout=3, username=self.ifuser, password=self.ifpsw)   
                 
                 try: 
                     databases = [db['name'] for db in self.influxclient.get_list_database()]
                 except Exception as e: 
-                    if self.verbose :  print("\t - " + "Grott can not contact InfluxDB, influx processing disabled")   
+                    if self.verbose :  print("\t - " + "Grott can not contact InfluxDB")   
                     self.influx = False                       # no influx processing any more till restart (and errors repared)
                     print("\t -", e)
-                    return
+                    raise SystemExit("Grott Influxdb initialisation error")
 
                 #print(databases)  
                 if self.ifdbname not in databases:
@@ -127,6 +129,8 @@ class Conf :
                     except: 
                         if self.verbose :  print("\t - " + "Grott Unable to create or connect to influx database:" ,  self.ifdbname," check user authorisation") 
                         self.influx = False                       # no influx processing any more till restart (and errors repared)
+                        raise SystemExit("Grott Influxdb initialisation error")
+
         
                 self.influxclient.switch_database(self.ifdbname)
             else: 
@@ -137,9 +141,9 @@ class Conf :
                     from influxdb_client import InfluxDBClient
                     from influxdb_client.client.write_api import SYNCHRONOUS
                 except: 
-                    if self.verbose :  print("\t - " + "Grott InfluxDB Library not installed in Python, influx processing disabled")
+                    if self.verbose :  print("\t - " + "Grott Influxdb-client Library not installed in Python")
                     self.influx = False                       # no influx processing any more till restart (and errors repared)
-                    return              
+                    raise SystemExit("Grott Influxdb initialisation error")
 
                 #self.influxclient = InfluxDBClient(url='192.168.0.211:8086',org=self.iforg, token=self.iftoken)
                 self.influxclient = InfluxDBClient(url=self.ifip + ":" + self.ifport,org=self.iforg, token=self.iftoken)
@@ -151,21 +155,24 @@ class Conf :
                     buckets = self.ifbucket_api.find_bucket_by_name(self.ifbucket)
                     organizations = self.iforganization_api.find_organizations()                                           
                     if buckets == None:
-                        print("\t - " + "influxDB bucket ", self.ifbucket, "not defined, influx processing disabled")  
+                        print("\t - " + "influxDB bucket ", self.ifbucket, "not defined")  
                         self.influx = False      
+                        raise SystemExit("Grott Influxdb initialisation error") 
                     orgfound = False    
                     for org in organizations: 
                         if org.name == self.iforg:
                             orgfound = True
                             break
                     if not orgfound: 
-                        print("\t - " + "influxDB organization", self.iforg, "not defined, influx processing disabled")  
+                        print("\t - " + "influxDB organization", self.iforg, "not defined")  
                         self.influx = False  
+                        raise SystemExit("Grott Influxdb initialisation error")
 
                 except Exception as e:
-                    if self.verbose :  print("\t - " + "Grott can not contact InfluxDB, influx processing disabled")   
+                    if self.verbose :  print("\t - " + "Grott error: can not contact InfluxDB")   
                     print(e)
                     self.influx = False                       # no influx processing any more till restart (and errors repared)
+                    raise SystemExit("Grott Influxdb initialisation error") 
             
     def print(self): 
         print("\nGrott settings:\n")

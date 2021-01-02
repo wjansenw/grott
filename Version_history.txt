@@ -119,3 +119,6 @@ Support direct output to Influxdb. See wiki for more information how to enable (
 allow true / false (lower cases) in ini file and environmental variables (resolve issue: #24 )
 2.3.1
 Added support for influxdb V2
+2.3.1a
+bugfix:  influx ip address localhost will be translated to 0.0.0.0
+Grott processing will end with an error if influxdb initialisation can not proceed. 
