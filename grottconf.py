@@ -1,7 +1,7 @@
 #
 # grottconf  process command parameter and settings file
 # Updated: 2020-01-02
-# Version 2.3.1a
+# Version 2.3.1b
 
 import configparser, sys, argparse, os, json, io
 import ipaddress
@@ -153,7 +153,8 @@ class Conf :
                 
                 try:
                     buckets = self.ifbucket_api.find_bucket_by_name(self.ifbucket)
-                    organizations = self.iforganization_api.find_organizations()                                           
+                    organizations = self.iforganization_api.find_organizations()  
+                    #print(organizations)                                         
                     if buckets == None:
                         print("\t - " + "influxDB bucket ", self.ifbucket, "not defined")  
                         self.influx = False      
@@ -164,9 +165,9 @@ class Conf :
                             orgfound = True
                             break
                     if not orgfound: 
-                        print("\t - " + "influxDB organization", self.iforg, "not defined")  
-                        self.influx = False  
-                        raise SystemExit("Grott Influxdb initialisation error")
+                        print("\t - " + "influxDB organization", self.iforg, "not defined or not authorisation to check")  
+                        ##self.influx = False  
+                        ##raise SystemExit("Grott Influxdb initialisation error")
 
                 except Exception as e:
                     if self.verbose :  print("\t - " + "Grott error: can not contact InfluxDB")   

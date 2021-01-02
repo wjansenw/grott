@@ -1,6 +1,6 @@
 # grottdata.py processing data  functions
-# Updated: 2020-12-30
-# Version 2.3.0
+# Updated: 2020-01-02
+# Version 2.3.1b
 
 #import time
 from datetime import datetime, timedelta
@@ -410,11 +410,7 @@ def procdata(conf,data):
             # if  conf.verbose: 
                 print("\t - " + "Grott InfluxDB error ")
                 print(e) 
-            # print(ifresult)
-            # if  conf.verbose: 
-            #     try :
-            #         ifresult
-            #         print("\t - " + "Grott InfluxDB error :",ifresult) 
-            #     except: print("\t - " + "Grott InfluxDB error ") 
+                raise SystemExit("Grott Influxdb write error, grott will be stopped") 
+            
     else: 
             if conf.verbose : print("\t - " + "Grott Send data to Influx disabled ")           

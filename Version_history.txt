@@ -121,4 +121,8 @@ allow true / false (lower cases) in ini file and environmental variables (resolv
 Added support for influxdb V2
 2.3.1a
 bugfix:  influx ip address localhost will be translated to 0.0.0.0
-Grott processing will end with an error if influxdb initialisation can not proceed. 
+Grott processing will end with an error if influxdb initialisation fails 
+2.3.1b
+influxdb organization check at initialization only for information. Grott will not be stopped if organization can not be found. 
+      a token with only read/write permission is not allowed to find organisations (tested with influxdb 2.0.4)
+influxdb write error will stop grott processing (just to be save if organization is not available)
