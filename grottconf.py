@@ -1,7 +1,7 @@
 #
 # grottconf  process command parameter and settings file
-# Updated: 2020-01-02
-# Version 2.3.1b
+# Updated: 2021-01-09
+# Version 2.4.0
 
 import configparser, sys, argparse, os, json, io
 import ipaddress
@@ -66,6 +66,12 @@ class Conf :
         self.iftoken  = "influx_token"
         self.iforg  = "grottorg"
         self.ifbucket = "grottdb" 
+
+        #extension 
+        self.extension = False
+        self.extname = "grottext"
+        #self.extvar = {"ip": "localhost", "port":8000}  
+        self.extvar = {"none": "none"}  
         
         print("Grott Growatt logging monitor : " + self.verrel)    
 
@@ -204,7 +210,8 @@ class Conf :
         print("\tmqtttopic:   \t",self.mqtttopic)
         print("\tmqtttauth:   \t",self.mqttauth)
         print("\tmqttuser:    \t",self.mqttuser)
-        print("\tmqttpsw:     \t",self.mqttpsw)                       #scramble output if tested!
+        print("\tmqttpsw:     \t","**secret**")                       #scramble output if tested!
+        #print("\tmqttpsw:     \t",self.mqttpsw)                       #scramble output if tested!
         print("_Growatt server:")
         print("\tgrowattip:   \t",self.growattip)
         print("\tgrowattport: \t",self.growattport)
@@ -231,7 +238,12 @@ class Conf :
         print("\tbucket:      \t",self.ifbucket) 
         print("\ttoken:       \t","**secret**")
         #print("\ttoken:       \t",self.iftoken)  
-
+        
+        print("_Extension:")
+        print("\textension:   \t",self.extension) 
+        print("\textname:     \t",self.extname)  
+        print("\textvar:      \t",self.extvar) 
+         
         print()
 
 
@@ -312,7 +324,8 @@ class Conf :
         self.mqttauth = str2bool(self.mqttauth)
         self.influx = str2bool(self.influx)
         self.influx2 = str2bool(self.influx2)
-        
+        self.extension = str2bool(self.extension)
+               
     def procconf(self): 
         print("\nGrott process configuration file")
         config = configparser.ConfigParser()
@@ -361,6 +374,10 @@ class Conf :
         if config.has_option("influx","org"): self.iforg = config.get("influx","org")
         if config.has_option("influx","bucket"): self.ifbucket = config.get("influx","bucket")
         if config.has_option("influx","token"): self.iftoken = config.get("influx","token")
+        #extensionINFLUX
+        if config.has_option("extension","extension"): self.extension = config.get("extension","extension") 
+        if config.has_option("extension","extname"): self.extname = config.get("extension","extname") 
+        if config.has_option("extension","extvar"): self.extvar = eval(config.get("extension","extvar")) 
         
     def procenv(self): 
         print("\nGrott process environmental variables")
@@ -428,6 +445,10 @@ class Conf :
         if os.getenv('giforg') != None :  self.iforg = os.getenv('giforg') 
         if os.getenv('gifbucket') != None :  self.ifbucket = os.getenv('gifbucket') 
         if os.getenv('giftoken') != None :  self.iftoken = os.getenv('giftoken') 
+        #Handle Extension
+        if os.getenv('gextension') != None :  self.extension = os.getenv('gextension') 
+        if os.getenv('gextname') != None :  self.extname = os.getenv('gextname') 
+        if os.getenv('gextvar') != None :  self.extvar = eval(os.getenv('gextvar'))
         
     def set_recwl(self):    
         #define record that will not be blocked or inspected if blockcmd is specified

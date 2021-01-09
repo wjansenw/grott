@@ -1,6 +1,6 @@
 # grottdata.py processing data  functions
-# Updated: 2020-01-02
-# Version 2.3.1b
+# Updated: 2021-01-09
+# Version 2.4.0
 
 #import time
 from datetime import datetime, timedelta
@@ -413,4 +413,27 @@ def procdata(conf,data):
                 raise SystemExit("Grott Influxdb write error, grott will be stopped") 
             
     else: 
-            if conf.verbose : print("\t - " + "Grott Send data to Influx disabled ")           
+            if conf.verbose : print("\t - " + "Grott Send data to Influx disabled ")      
+
+    if conf.extension : 
+        
+        if conf.verbose :  print("\t - " + "Grott extension processing started : ", conf.extname)
+        import importlib
+        try: 
+            module = importlib.import_module(conf.extname, package=None)
+        except :
+            if conf.verbose : print("\t - " + "Grott import extension failed:", conf.extname)      
+            return
+        try:
+            ext_result = module.grottext(conf,result_string,jsonmsg) 
+        except Exception as e:
+            print("\t - " + "Grott extension processing error ")
+            print(e) 
+            return
+
+        if conf.verbose :  
+            print("\t - " + "Grott extension processing ended : ", ext_result)
+            #print("\t -", ext_result)
+    else: 
+            if conf.verbose : print("\t - " + "Grott extension processing disabled ")      
+            

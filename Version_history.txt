@@ -126,3 +126,7 @@ Grott processing will end with an error if influxdb initialisation fails
 influxdb organization check at initialization only for information. Grott will not be stopped if organization can not be found. 
       a token with only read/write permission is not allowed to find organisations (tested with influxdb 2.0.4)
 influxdb write error will stop grott processing (just to be save if organization is not available)
+2.4.0 
+Introduce possibility to add extensions for additional (personlized) processing. 
+ see wiki for more information: 
+create extension directory with extension examples  
